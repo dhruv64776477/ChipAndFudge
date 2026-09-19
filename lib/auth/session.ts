@@ -14,9 +14,13 @@ export const CHALLENGE_COOKIE_NAME = 'cf_auth_challenge';
 /**
  * Create a signed JWT session token for the authenticated admin device.
  */
-export async function createSessionToken(credentialId: string): Promise<string> {
+export async function createSessionToken(
+  credentialId: string,
+  deviceId: string = ''
+): Promise<string> {
   return await new SignJWT({
     sub: 'admin',
+    deviceId,
     credentialId,
     role: 'admin',
   } as AdminSessionPayload)

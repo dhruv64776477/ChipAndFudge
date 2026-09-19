@@ -17,9 +17,9 @@ export async function POST(req: NextRequest) {
   try {
     await connectToDatabase();
 
-    // Check if an admin device is already registered (Section 10)
-    const existingAdmin = await AdminDevice.findOne({ enabled: true });
-    if (existingAdmin) {
+    // Enforce single admin device rule at the database level
+    const deviceCount = await AdminDevice.countDocuments();
+    if (deviceCount > 0) {
       return NextResponse.json(
         { error: 'Registration rejected. Only one active master admin device is permitted.' },
         { status: 403 }
@@ -27,45 +27,6 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-
-    // Handle dev network bypass if enabled for non-HTTPS local IP development
-    if (body.devBypass === true && (process.env.NODE_ENV as string) !== 'production') {
-      const deviceId = `dev-${crypto.randomUUID()}`;
-      const devDevice = await AdminDevice.create({
-        deviceId,
-        name: body.deviceName || 'Local Network Dev Device',
-        webauthnCredentialId: `dev-cred-${Date.now()}`,
-        webauthnPublicKey: 'dev-dummy-key',
-        counter: 1,
-        enabled: true,
-        createdAt: new Date(),
-        lastUsedAt: new Date(),
-      });
-
-      await AuditLog.create({
-        action: 'ADMIN_LOGIN',
-        deviceId,
-        timestamp: new Date(),
-        details: { mode: 'DEV_NETWORK_ENROLMENT' },
-      });
-
-      const sessionToken = await createSessionToken(deviceId);
-      const res = NextResponse.json({
-        verified: true,
-        message: 'Master device enrolled in development mode.',
-        deviceId,
-      });
-
-      res.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 7 * 24 * 60 * 60,
-      });
-
-      return res;
-    }
 
     const challengeCookie = req.cookies.get(CHALLENGE_COOKIE_NAME)?.value;
     if (!challengeCookie) {
@@ -83,7 +44,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { rpID, origin } = getWebAuthnConfig(req);
+    const { rpID, origin } = getWebAuthnConfig();
 
     const verification = await verifyRegistrationResponse({
       response: body as RegistrationResponseJSON,
@@ -105,11 +66,9 @@ export async function POST(req: NextRequest) {
 
     const adminDevice = await AdminDevice.create({
       deviceId,
-      name: 'Master Admin Device',
-      webauthnCredentialId: credential.id,
-      webauthnPublicKey: publicKeyBase64,
+      credentialId: credential.id,
+      publicKey: publicKeyBase64,
       counter: credential.counter,
-      enabled: true,
       transports: credential.transports || [],
       createdAt: new Date(),
       lastUsedAt: new Date(),
@@ -120,12 +79,12 @@ export async function POST(req: NextRequest) {
       deviceId,
       timestamp: new Date(),
       details: {
-        credentialID: credential.id,
+        credentialId: credential.id,
         registeredAt: adminDevice.createdAt,
       },
     });
 
-    const sessionToken = await createSessionToken(deviceId);
+    const sessionToken = await createSessionToken(credential.id, deviceId);
 
     const res = NextResponse.json({
       verified: true,
@@ -135,7 +94,7 @@ export async function POST(req: NextRequest) {
 
     res.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true,
       sameSite: 'lax',
       path: '/',
       maxAge: 7 * 24 * 60 * 60,

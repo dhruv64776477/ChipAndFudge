@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { generateAuthenticationOptions } from '@simplewebauthn/server';
+import type { AuthenticatorTransport } from '@simplewebauthn/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { AdminDevice } from '@/models/AdminDevice';
 import { getWebAuthnConfig } from '@/lib/auth/webauthn';
 import { createChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/auth/session';
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
     await connectToDatabase();
 
-    const adminDevice = await AdminDevice.findOne({ enabled: true });
+    const adminDevice = await AdminDevice.findOne();
     if (!adminDevice) {
       return NextResponse.json(
         { error: 'No authorized master passkey device found. Please complete setup first.' },
@@ -17,14 +18,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { rpID } = getWebAuthnConfig(req);
+    const { rpID } = getWebAuthnConfig();
 
     const options = await generateAuthenticationOptions({
       rpID,
       allowCredentials: [
         {
-          id: adminDevice.webauthnCredentialId,
-          transports: adminDevice.transports as any,
+          id: adminDevice.credentialId,
+          transports: (adminDevice.transports || []) as AuthenticatorTransport[],
         },
       ],
       userVerification: 'preferred',
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     const res = NextResponse.json(options);
     res.cookies.set(CHALLENGE_COOKIE_NAME, challengeToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true,
       sameSite: 'lax',
       path: '/',
       maxAge: 300,

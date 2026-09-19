@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthenticationResponse } from '@simplewebauthn/server';
-import type { AuthenticationResponseJSON } from '@simplewebauthn/server';
+import type { AuthenticationResponseJSON, AuthenticatorTransport } from '@simplewebauthn/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { AdminDevice } from '@/models/AdminDevice';
 import { AuditLog } from '@/models/AuditLog';
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   try {
     await connectToDatabase();
 
-    const adminDevice = await AdminDevice.findOne({ enabled: true });
+    const adminDevice = await AdminDevice.findOne();
     if (!adminDevice) {
       return NextResponse.json(
         { error: 'No admin passkey has been enrolled. Please visit /admin/setup.' },
@@ -25,35 +25,6 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-
-    // Dev network bypass login if enrolled via dev mode
-    if (body.devBypass === true && (process.env.NODE_ENV as string) !== 'production') {
-      adminDevice.lastUsedAt = new Date();
-      await adminDevice.save();
-
-      await AuditLog.create({
-        action: 'ADMIN_LOGIN',
-        deviceId: adminDevice.deviceId,
-        timestamp: new Date(),
-        details: { mode: 'DEV_NETWORK_LOGIN' },
-      });
-
-      const sessionToken = await createSessionToken(adminDevice.deviceId);
-      const res = NextResponse.json({
-        verified: true,
-        message: 'Admin authenticated in dev mode.',
-      });
-
-      res.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 7 * 24 * 60 * 60,
-      });
-
-      return res;
-    }
 
     const challengeCookie = req.cookies.get(CHALLENGE_COOKIE_NAME)?.value;
     if (!challengeCookie) {
@@ -71,8 +42,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { rpID, origin } = getWebAuthnConfig(req);
-    const credentialPublicKey = new Uint8Array(Buffer.from(adminDevice.webauthnPublicKey, 'base64'));
+    const { rpID, origin } = getWebAuthnConfig();
+    const credentialPublicKey = new Uint8Array(Buffer.from(adminDevice.publicKey, 'base64'));
 
     const verification = await verifyAuthenticationResponse({
       response: body as AuthenticationResponseJSON,
@@ -80,10 +51,10 @@ export async function POST(req: NextRequest) {
       expectedOrigin: origin,
       expectedRPID: rpID,
       credential: {
-        id: adminDevice.webauthnCredentialId,
+        id: adminDevice.credentialId,
         publicKey: credentialPublicKey,
         counter: adminDevice.counter,
-        transports: adminDevice.transports as any,
+        transports: (adminDevice.transports || []) as AuthenticatorTransport[],
       },
     });
 
@@ -94,7 +65,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Update replay counter
+    // Update replay counter according to WebAuthn verification result
     adminDevice.counter = verification.authenticationInfo.newCounter;
     adminDevice.lastUsedAt = new Date();
     await adminDevice.save();
@@ -104,12 +75,12 @@ export async function POST(req: NextRequest) {
       deviceId: adminDevice.deviceId,
       timestamp: new Date(),
       details: {
-        credentialID: adminDevice.webauthnCredentialId,
+        credentialId: adminDevice.credentialId,
         counter: adminDevice.counter,
       },
     });
 
-    const sessionToken = await createSessionToken(adminDevice.deviceId);
+    const sessionToken = await createSessionToken(adminDevice.credentialId, adminDevice.deviceId);
 
     const res = NextResponse.json({
       verified: true,
@@ -118,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     res.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true,
       sameSite: 'lax',
       path: '/',
       maxAge: 7 * 24 * 60 * 60,

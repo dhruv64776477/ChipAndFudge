@@ -7,17 +7,16 @@ export async function GET(req: NextRequest) {
   try {
     await connectToDatabase();
 
-    const registeredDevice = await AdminDevice.findOne({ enabled: true }).select('name deviceId createdAt').lean();
+    const registeredDevice = await AdminDevice.findOne().select('deviceId createdAt').lean();
     const isConfigured = !!registeredDevice;
 
     const session = await getAdminSessionFromRequest(req);
-    const isAuthenticated = !!(session && session.deviceId);
+    const isAuthenticated = !!(session && (session.credentialId || session.deviceId));
 
     return NextResponse.json({
       isConfigured,
       isAuthenticated,
-      deviceName: registeredDevice?.name || null,
-      deviceId: session?.deviceId || null,
+      deviceId: session?.deviceId || registeredDevice?.deviceId || null,
     });
   } catch (error: unknown) {
     console.error('Session check error:', error);

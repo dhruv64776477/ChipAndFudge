@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { startAuthentication } from '@simplewebauthn/browser';
-import { Fingerprint, Lock, AlertCircle, ArrowRight, Sparkles, Laptop } from 'lucide-react';
+import { Fingerprint, Lock, AlertCircle, ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminLoginPage() {
@@ -12,13 +12,8 @@ export default function AdminLoginPage() {
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isSecureContext, setIsSecureContext] = useState(true);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsSecureContext(window.isSecureContext);
-    }
-
     fetch('/api/admin/auth/session')
       .then((r) => r.json())
       .then((data) => {
@@ -62,37 +57,7 @@ export default function AdminLoginPage() {
     } catch (err: unknown) {
       console.error('Login error:', err);
       const msg = err instanceof Error ? err.message : 'Passkey login failed.';
-      if (msg.includes('NotAllowedError') || !isSecureContext) {
-        setError(
-          'Browser blocked passkey access on this origin. WebAuthn requires HTTPS or http://localhost. Please use the Local Network Sign In button below or access via http://localhost:3000.'
-        );
-      } else {
-        setError(msg);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDevNetworkLogin = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch('/api/admin/auth/login/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ devBypass: true }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Network login failed');
-      }
-
-      router.push('/admin');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -163,19 +128,6 @@ export default function AdminLoginPage() {
                   <Fingerprint className="h-5 w-5" />
                   <span>{loading ? 'Verifying Sensor...' : 'Sign In with Passkey'}</span>
                 </button>
-
-                {(!isSecureContext || process.env.NODE_ENV !== 'production') && (
-                  <div className="pt-2">
-                    <button
-                      onClick={handleDevNetworkLogin}
-                      disabled={loading}
-                      className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs bg-[#24150e] hover:bg-[#321c13] border border-amber-500/40 text-amber-300 transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      <Laptop className="h-4 w-4" />
-                      <span>Sign In (Local Network Mode)</span>
-                    </button>
-                  </div>
-                )}
               </div>
             )}
           </div>

@@ -11,8 +11,6 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
-  Wifi,
-  Laptop,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -22,15 +20,8 @@ export default function AdminSetupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [isSecureContext, setIsSecureContext] = useState(true);
-  const [currentOrigin, setCurrentOrigin] = useState('');
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsSecureContext(window.isSecureContext);
-      setCurrentOrigin(window.location.origin);
-    }
-
     fetch('/api/admin/auth/session')
       .then((r) => r.json())
       .then((data) => {
@@ -42,13 +33,12 @@ export default function AdminSetupPage() {
       .catch((e) => console.error('Session check error:', e));
   }, [router]);
 
-  // Standard WebAuthn Passkey Registration (localhost or HTTPS)
   const handleRegisterPasskey = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const optRes = await fetch('/api/admin/auth/register/generate-options', {
+      const optRes = await fetch('/api/admin/auth/register/options', {
         method: 'POST',
       });
 
@@ -78,44 +68,7 @@ export default function AdminSetupPage() {
     } catch (err: unknown) {
       console.error('Registration error:', err);
       const msg = err instanceof Error ? err.message : 'Passkey registration cancelled.';
-      if (msg.includes('NotAllowedError') || !isSecureContext) {
-        setError(
-          'Browser blocked passkey access. WebAuthn requires HTTPS or http://localhost. If accessing over a local IP (e.g. 10.x.x.x), please use the Dev Network Enrolment button below or access via http://localhost:3000.'
-        );
-      } else {
-        setError(msg);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Development Network Bypass for testing over local Wi-Fi / LAN IP without HTTPS
-  const handleDevNetworkEnrolment = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch('/api/admin/auth/register/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          devBypass: true,
-          deviceName: 'Primary Stall Device (Local Network)',
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Dev enrolment failed');
-      }
-
-      setSuccess(true);
-      setTimeout(() => {
-        router.push('/admin');
-      }, 1200);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Enrolment failed');
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -151,19 +104,6 @@ export default function AdminSetupPage() {
                 Protect <span className="text-amber-400 font-semibold">The Chip &amp; Fudge</span> stall operations. Only ONE master device will be authorized.
               </p>
             </div>
-
-            {/* Insecure Context Warning for LAN IP */}
-            {!isSecureContext && (
-              <div className="mb-6 rounded-2xl bg-amber-950/40 border border-amber-500/40 p-4 text-xs text-amber-200 space-y-2">
-                <div className="flex items-center gap-2 font-bold text-amber-300">
-                  <Wifi className="h-4 w-4 shrink-0" />
-                  <span>Local Network IP Detected ({currentOrigin})</span>
-                </div>
-                <p className="text-[11px] leading-relaxed text-amber-200/90">
-                  Browsers disable native WebAuthn passkeys on plain HTTP IP addresses. For full passkey biometrics, access via <strong className="text-white">http://localhost:3000</strong> or run with HTTPS.
-                </p>
-              </div>
-            )}
 
             {isConfigured === true ? (
               <div className="rounded-2xl bg-[#2a170f] border border-amber-500/30 p-6 text-center">
@@ -207,23 +147,6 @@ export default function AdminSetupPage() {
                   <Fingerprint className="h-5 w-5" />
                   <span>{loading ? 'Processing...' : 'Register Biometric Passkey'}</span>
                 </button>
-
-                {/* Dev Mode Network Fallback Button if on IP or Insecure Context */}
-                {(!isSecureContext || process.env.NODE_ENV !== 'production') && (
-                  <div className="pt-2">
-                    <button
-                      onClick={handleDevNetworkEnrolment}
-                      disabled={loading || success}
-                      className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs bg-[#24150e] hover:bg-[#321c13] border border-amber-500/40 text-amber-300 transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      <Laptop className="h-4 w-4" />
-                      <span>Authorize Master Device (Local Network Mode)</span>
-                    </button>
-                    <span className="text-[10px] text-zinc-500 block text-center mt-1.5">
-                      Enables full stall access for devices connected via local Wi-Fi / LAN IP.
-                    </span>
-                  </div>
-                )}
               </div>
             )}
           </div>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { AdminDevice } from '@/models/AdminDevice';
-import { requireAdminAuth } from '@/lib/auth';
+import { requireAdminAuth } from '@/lib/auth/admin';
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,8 +10,8 @@ export async function GET(req: NextRequest) {
     const deviceCount = await AdminDevice.countDocuments();
     const isConfigured = deviceCount > 0;
 
-    const session = await requireAdminAuth(req);
-    const isAuthenticated = !!session;
+    const { auth } = await requireAdminAuth(req);
+    const isAuthenticated = !!auth;
 
     return NextResponse.json({
       isConfigured,
