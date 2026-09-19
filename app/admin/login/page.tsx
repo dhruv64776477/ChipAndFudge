@@ -34,13 +34,17 @@ export default function AdminLoginPage() {
         method: 'POST',
       });
 
-      if (!optRes.ok) {
-        const data = await optRes.json();
-        throw new Error(data.error || 'Failed to start passkey login');
+      const optData = await optRes.json();
+
+      if (!optRes.ok || optData.error) {
+        throw new Error(optData.error || `Failed to start passkey login (${optRes.status})`);
       }
 
-      const options = await optRes.json();
-      const authResponse = await startAuthentication({ optionsJSON: options });
+      if (!optData.challenge) {
+        throw new Error('Server returned invalid WebAuthn login options.');
+      }
+
+      const authResponse = await startAuthentication({ optionsJSON: optData });
 
       const verifyRes = await fetch('/api/admin/auth/login/verify', {
         method: 'POST',
@@ -48,9 +52,10 @@ export default function AdminLoginPage() {
         body: JSON.stringify(authResponse),
       });
 
-      if (!verifyRes.ok) {
-        const data = await verifyRes.json();
-        throw new Error(data.error || 'Authentication assertion failed');
+      const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok || verifyData.error) {
+        throw new Error(verifyData.error || `Authentication failed (${verifyRes.status})`);
       }
 
       router.push('/admin');

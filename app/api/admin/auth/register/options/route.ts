@@ -25,10 +25,20 @@ export async function POST() {
     }
 
     const { rpName, rpID } = getWebAuthnConfig();
+    if (!rpName || !rpID) {
+      return NextResponse.json(
+        { error: 'WebAuthn configuration is missing on the server.' },
+        { status: 500 }
+      );
+    }
+
+    // Explicitly pass Uint8Array userID for stable WebAuthn user entity identification
+    const userID = new TextEncoder().encode('the-chip-and-fudge-admin-master-user');
 
     const options = await generateRegistrationOptions({
       rpName,
       rpID,
+      userID,
       userName: 'admin@thechipandfudge.com',
       userDisplayName: 'The Chip & Fudge Admin',
       attestationType: 'none',
@@ -37,6 +47,14 @@ export async function POST() {
         userVerification: 'required',
       },
     });
+
+    if (!options || !options.challenge || !options.user || !options.user.id) {
+      console.error('Invalid WebAuthn options generated:', options);
+      return NextResponse.json(
+        { error: 'Failed to generate valid registration options.' },
+        { status: 500 }
+      );
+    }
 
     // Store the challenge in a short-lived signed JWT cookie
     const challengeToken = await createChallengeToken(options.challenge, 'registration');
@@ -53,9 +71,7 @@ export async function POST() {
     return res;
   } catch (error: unknown) {
     console.error('Registration options error:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate registration options.' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to generate registration options.';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

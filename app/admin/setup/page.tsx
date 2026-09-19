@@ -42,13 +42,17 @@ export default function AdminSetupPage() {
         method: 'POST',
       });
 
-      if (!optRes.ok) {
-        const data = await optRes.json();
-        throw new Error(data.error || 'Failed to generate passkey options');
+      const optData = await optRes.json();
+
+      if (!optRes.ok || optData.error) {
+        throw new Error(optData.error || `Failed to generate passkey options (${optRes.status})`);
       }
 
-      const options = await optRes.json();
-      const regResponse = await startRegistration({ optionsJSON: options });
+      if (!optData.challenge || !optData.user || !optData.user.id) {
+        throw new Error('Server returned invalid WebAuthn registration options.');
+      }
+
+      const regResponse = await startRegistration({ optionsJSON: optData });
 
       const verifyRes = await fetch('/api/admin/auth/register/verify', {
         method: 'POST',
@@ -56,9 +60,10 @@ export default function AdminSetupPage() {
         body: JSON.stringify(regResponse),
       });
 
-      if (!verifyRes.ok) {
-        const data = await verifyRes.json();
-        throw new Error(data.error || 'Verification of passkey failed');
+      const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok || verifyData.error) {
+        throw new Error(verifyData.error || `Passkey registration verification failed (${verifyRes.status})`);
       }
 
       setSuccess(true);
