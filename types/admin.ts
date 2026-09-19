@@ -1,11 +1,8 @@
 export interface IAdminDevice {
   _id?: string;
-  deviceId: string;
-  name: string;
-  webauthnCredentialId: string;
-  webauthnPublicKey: string; // Base64 encoded
+  credentialId: string;
+  publicKey: string; // Base64-encoded COSE public key
   counter: number;
-  enabled: boolean;
   transports?: string[];
   createdAt: Date;
   lastUsedAt: Date | null;
@@ -13,7 +10,7 @@ export interface IAdminDevice {
 
 export interface AdminSessionPayload {
   sub: string;
-  deviceId: string;
+  credentialId: string;
   role: 'admin';
   iat?: number;
   exp?: number;

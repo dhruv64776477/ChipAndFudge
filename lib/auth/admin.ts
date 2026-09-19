@@ -12,14 +12,14 @@ export interface AdminAuthResult {
 
 /**
  * Server-side admin verification.
- * Verifies both the HTTP-only session cookie AND that the bound admin device
- * is registered, active, and enabled in the database.
+ * Verifies the HTTP-only session cookie JWT AND that the credential ID
+ * in the token maps to a registered admin device in the database.
  */
 export async function requireAdminAuth(
   req: NextRequest
 ): Promise<{ errorResponse?: NextResponse; auth?: AdminAuthResult }> {
   const session = await getAdminSessionFromRequest(req);
-  if (!session || !session.deviceId) {
+  if (!session || !session.credentialId) {
     return {
       errorResponse: NextResponse.json(
         { success: false, error: 'Unauthorized. Admin session required.' },
@@ -30,14 +30,13 @@ export async function requireAdminAuth(
 
   await connectToDatabase();
   const adminDevice = await AdminDevice.findOne({
-    deviceId: session.deviceId,
-    enabled: true,
+    credentialId: session.credentialId,
   });
 
   if (!adminDevice) {
     return {
       errorResponse: NextResponse.json(
-        { success: false, error: 'Forbidden. Admin device is not authorized or has been disabled.' },
+        { success: false, error: 'Forbidden. Admin device is not authorized.' },
         { status: 403 }
       ),
     };

@@ -1,14 +1,9 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IAdminDeviceDocument extends Document {
-  deviceId: string;
-  name: string;
-  webauthnCredentialId: string;
-  webauthnPublicKey: string; // Base64 representation
-  credentialID?: string;
-  credentialPublicKey?: string;
+  credentialId: string;
+  publicKey: string; // Base64-encoded COSE public key
   counter: number;
-  enabled: boolean;
   transports: string[];
   createdAt: Date;
   lastUsedAt: Date | null;
@@ -16,47 +11,20 @@ export interface IAdminDeviceDocument extends Document {
 
 const AdminDeviceSchema = new Schema<IAdminDeviceDocument>(
   {
-    deviceId: {
+    credentialId: {
       type: String,
       required: true,
       unique: true,
       index: true,
     },
-    name: {
-      type: String,
-      default: 'Primary Admin Device',
-      trim: true,
-    },
-    webauthnCredentialId: {
+    publicKey: {
       type: String,
       required: true,
-      index: true,
-    },
-    webauthnPublicKey: {
-      type: String,
-      required: true,
-    },
-    // Aliases to guarantee backward and forward schema compatibility
-    credentialID: {
-      type: String,
-      default: function (this: IAdminDeviceDocument) {
-        return this.webauthnCredentialId;
-      },
-    },
-    credentialPublicKey: {
-      type: String,
-      default: function (this: IAdminDeviceDocument) {
-        return this.webauthnPublicKey;
-      },
     },
     counter: {
       type: Number,
       required: true,
       default: 0,
-    },
-    enabled: {
-      type: Boolean,
-      default: true,
     },
     transports: {
       type: [String],
