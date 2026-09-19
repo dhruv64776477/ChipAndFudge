@@ -20,6 +20,18 @@ export async function POST() {
 
     const { rpID } = getWebAuthnConfig();
 
+    if (!rpID) {
+      throw new Error('Missing WEBAUTHN_RP_ID');
+    }
+    if (!adminDevice.credentialId) {
+      throw new Error('Missing AdminDevice credentialId');
+    }
+
+    console.log('[WebAuthn Login Options Inputs]', {
+      hasRpId: Boolean(rpID),
+      hasCredentialId: Boolean(adminDevice.credentialId),
+    });
+
     const options = await generateAuthenticationOptions({
       rpID,
       allowCredentials: [
@@ -30,6 +42,10 @@ export async function POST() {
       ],
       userVerification: 'preferred',
     });
+
+    if (!options || !options.challenge) {
+      throw new Error('generateAuthenticationOptions returned invalid options');
+    }
 
     const challengeToken = await createChallengeToken(options.challenge, 'login');
 

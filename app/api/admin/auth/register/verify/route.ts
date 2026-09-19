@@ -46,6 +46,23 @@ export async function POST(req: NextRequest) {
 
     const { rpID, origin } = getWebAuthnConfig();
 
+    if (!rpID) {
+      throw new Error('Missing WEBAUTHN_RP_ID');
+    }
+    if (!origin) {
+      throw new Error('Missing WEBAUTHN_ORIGIN');
+    }
+    if (!expectedChallenge) {
+      throw new Error('Missing expected WebAuthn challenge');
+    }
+
+    console.log('[WebAuthn Verify Registration Inputs]', {
+      hasResponse: Boolean(body),
+      hasExpectedChallenge: Boolean(expectedChallenge),
+      hasExpectedOrigin: Boolean(origin),
+      hasExpectedRpId: Boolean(rpID),
+    });
+
     const verification = await verifyRegistrationResponse({
       response: body as RegistrationResponseJSON,
       expectedChallenge,

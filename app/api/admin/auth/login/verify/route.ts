@@ -43,6 +43,19 @@ export async function POST(req: NextRequest) {
     }
 
     const { rpID, origin } = getWebAuthnConfig();
+    if (!rpID) {
+      throw new Error('Missing WEBAUTHN_RP_ID');
+    }
+    if (!origin) {
+      throw new Error('Missing WEBAUTHN_ORIGIN');
+    }
+    if (!expectedChallenge) {
+      throw new Error('Missing expected WebAuthn challenge');
+    }
+    if (!adminDevice.publicKey) {
+      throw new Error('Missing AdminDevice stored publicKey');
+    }
+
     const credentialPublicKey = new Uint8Array(Buffer.from(adminDevice.publicKey, 'base64'));
 
     const verification = await verifyAuthenticationResponse({

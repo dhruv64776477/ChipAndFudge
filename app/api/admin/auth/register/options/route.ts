@@ -16,31 +16,44 @@ export async function POST() {
     await connectToDatabase();
 
     // Enforce single-admin-device rule at the database level
-    const existingDevice = await AdminDevice.countDocuments();
-    if (existingDevice > 0) {
+    const existingDeviceCount = await AdminDevice.countDocuments();
+    if (existingDeviceCount > 0) {
+      console.warn('[WebAuthn Register Options] Registration rejected: Admin device already exists in DB');
       return NextResponse.json(
-        { error: 'ADMIN_ALREADY_REGISTERED' },
+        { error: 'ADMIN_ALREADY_REGISTERED', message: 'An admin device is already registered.' },
         { status: 403 }
       );
     }
 
     const { rpName, rpID } = getWebAuthnConfig();
-    if (!rpName || !rpID) {
-      return NextResponse.json(
-        { error: 'WebAuthn configuration is missing on the server.' },
-        { status: 500 }
-      );
+
+    // Validate required values explicitly
+    if (!rpName) {
+      throw new Error('Missing WEBAUTHN_RP_NAME');
+    }
+    if (!rpID) {
+      throw new Error('Missing WEBAUTHN_RP_ID');
     }
 
-    // Explicitly pass Uint8Array userID for stable WebAuthn user entity identification
+    const userName = 'admin@thechipandfudge.com';
+    const userDisplayName = 'The Chip & Fudge Admin';
+
+    // Stable 32-byte Uint8Array userID for the master admin user
     const userID = new TextEncoder().encode('the-chip-and-fudge-admin-master-user');
+
+    console.log('[WebAuthn Register Inputs]', {
+      hasRpName: Boolean(rpName),
+      hasRpId: Boolean(rpID),
+      hasUserName: Boolean(userName),
+      hasUserId: Boolean(userID),
+    });
 
     const options = await generateRegistrationOptions({
       rpName,
       rpID,
       userID,
-      userName: 'admin@thechipandfudge.com',
-      userDisplayName: 'The Chip & Fudge Admin',
+      userName,
+      userDisplayName,
       attestationType: 'none',
       authenticatorSelection: {
         residentKey: 'preferred',
@@ -48,13 +61,31 @@ export async function POST() {
       },
     });
 
-    if (!options || !options.challenge || !options.user || !options.user.id) {
-      console.error('Invalid WebAuthn options generated:', options);
-      return NextResponse.json(
-        { error: 'Failed to generate valid registration options.' },
-        { status: 500 }
-      );
+    // Validate all generated option properties explicitly before returning to client
+    if (!options) {
+      throw new Error('generateRegistrationOptions returned undefined');
     }
+    if (!options.challenge) {
+      throw new Error('Missing WebAuthn challenge in generated options');
+    }
+    if (!options.user) {
+      throw new Error('Missing WebAuthn user object in generated options');
+    }
+    if (!options.user.id) {
+      throw new Error('Missing WebAuthn user ID in generated options');
+    }
+    if (!options.rp || !options.rp.id) {
+      throw new Error('Missing WebAuthn RP ID in generated options');
+    }
+
+    console.log('[WebAuthn Generated Options Summary]', {
+      hasChallenge: Boolean(options.challenge),
+      hasRp: Boolean(options.rp),
+      hasRpId: Boolean(options.rp?.id),
+      hasUser: Boolean(options.user),
+      hasUserId: Boolean(options.user?.id),
+      hasUserName: Boolean(options.user?.name),
+    });
 
     // Store the challenge in a short-lived signed JWT cookie
     const challengeToken = await createChallengeToken(options.challenge, 'registration');
@@ -70,7 +101,7 @@ export async function POST() {
 
     return res;
   } catch (error: unknown) {
-    console.error('Registration options error:', error);
+    console.error('[Registration options error]', error);
     const message = error instanceof Error ? error.message : 'Failed to generate registration options.';
     return NextResponse.json({ error: message }, { status: 500 });
   }
