@@ -60,3 +60,29 @@ export const AdminDevice: Model<IAdminDeviceDocument> =
   mongoose.models.AdminDevice ||
   mongoose.model<IAdminDeviceDocument>('AdminDevice', AdminDeviceSchema);
 
+/**
+ * Clean up legacy or invalid AdminDevice records missing standardized fields.
+ */
+export async function cleanupLegacyAdminDevice(): Promise<void> {
+  try {
+    const legacyDocs = await AdminDevice.find({
+      $or: [
+        { credentialId: { $exists: false } },
+        { credentialId: null },
+        { credentialId: '' },
+        { publicKey: { $exists: false } },
+        { publicKey: null },
+        { publicKey: '' },
+      ],
+    });
+
+    if (legacyDocs.length > 0) {
+      console.warn(`[AdminDevice] Deleting ${legacyDocs.length} legacy AdminDevice documents lacking credentialId`);
+      await AdminDevice.deleteMany({
+        _id: { $in: legacyDocs.map((d) => d._id) },
+      });
+    }
+  } catch (err: unknown) {
+    console.error('[AdminDevice] Error during legacy document cleanup:', err);
+  }
+}

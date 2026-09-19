@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateRegistrationOptions } from '@simplewebauthn/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { AdminDevice } from '@/models/AdminDevice';
+import { AdminDevice, cleanupLegacyAdminDevice } from '@/models/AdminDevice';
 import { getWebAuthnConfig } from '@/lib/auth/webauthn';
 import { createChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/auth/session';
 
@@ -14,9 +14,12 @@ import { createChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/auth/session'
 export async function POST() {
   try {
     await connectToDatabase();
+    await cleanupLegacyAdminDevice();
 
     // Enforce single-admin-device rule at the database level
-    const existingDeviceCount = await AdminDevice.countDocuments();
+    const existingDeviceCount = await AdminDevice.countDocuments({
+      credentialId: { $exists: true, $ne: '' },
+    });
     if (existingDeviceCount > 0) {
       console.warn('[WebAuthn Register Options] Registration rejected: Admin device already exists in DB');
       return NextResponse.json(
@@ -27,7 +30,6 @@ export async function POST() {
 
     const { rpName, rpID } = getWebAuthnConfig();
 
-    // Validate required values explicitly
     if (!rpName) {
       throw new Error('Missing WEBAUTHN_RP_NAME');
     }
@@ -61,31 +63,15 @@ export async function POST() {
       },
     });
 
-    // Validate all generated option properties explicitly before returning to client
     if (!options) {
       throw new Error('generateRegistrationOptions returned undefined');
     }
     if (!options.challenge) {
       throw new Error('Missing WebAuthn challenge in generated options');
     }
-    if (!options.user) {
-      throw new Error('Missing WebAuthn user object in generated options');
-    }
-    if (!options.user.id) {
+    if (!options.user || !options.user.id) {
       throw new Error('Missing WebAuthn user ID in generated options');
     }
-    if (!options.rp || !options.rp.id) {
-      throw new Error('Missing WebAuthn RP ID in generated options');
-    }
-
-    console.log('[WebAuthn Generated Options Summary]', {
-      hasChallenge: Boolean(options.challenge),
-      hasRp: Boolean(options.rp),
-      hasRpId: Boolean(options.rp?.id),
-      hasUser: Boolean(options.user),
-      hasUserId: Boolean(options.user?.id),
-      hasUserName: Boolean(options.user?.name),
-    });
 
     // Store the challenge in a short-lived signed JWT cookie
     const challengeToken = await createChallengeToken(options.challenge, 'registration');

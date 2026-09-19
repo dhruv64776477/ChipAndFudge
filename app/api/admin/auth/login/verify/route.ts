@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthenticationResponse } from '@simplewebauthn/server';
 import type { AuthenticationResponseJSON, AuthenticatorTransport } from '@simplewebauthn/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { AdminDevice } from '@/models/AdminDevice';
+import { AdminDevice, cleanupLegacyAdminDevice } from '@/models/AdminDevice';
 import { AuditLog } from '@/models/AuditLog';
 import { getWebAuthnConfig } from '@/lib/auth/webauthn';
 import {
@@ -15,8 +15,12 @@ import {
 export async function POST(req: NextRequest) {
   try {
     await connectToDatabase();
+    await cleanupLegacyAdminDevice();
 
-    const adminDevice = await AdminDevice.findOne();
+    const adminDevice = await AdminDevice.findOne({
+      credentialId: { $exists: true, $ne: '' },
+    });
+
     if (!adminDevice) {
       return NextResponse.json(
         { error: 'No admin passkey has been enrolled. Please visit /admin/setup.' },
@@ -51,6 +55,9 @@ export async function POST(req: NextRequest) {
     }
     if (!expectedChallenge) {
       throw new Error('Missing expected WebAuthn challenge');
+    }
+    if (!adminDevice.credentialId) {
+      throw new Error('Missing AdminDevice stored credentialId');
     }
     if (!adminDevice.publicKey) {
       throw new Error('Missing AdminDevice stored publicKey');

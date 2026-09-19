@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { verifyRegistrationResponse } from '@simplewebauthn/server';
 import type { RegistrationResponseJSON } from '@simplewebauthn/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { AdminDevice } from '@/models/AdminDevice';
+import { AdminDevice, cleanupLegacyAdminDevice } from '@/models/AdminDevice';
 import { AuditLog } from '@/models/AuditLog';
 import { getWebAuthnConfig } from '@/lib/auth/webauthn';
 import {
@@ -16,9 +16,12 @@ import {
 export async function POST(req: NextRequest) {
   try {
     await connectToDatabase();
+    await cleanupLegacyAdminDevice();
 
     // Enforce single admin device rule at the database level
-    const deviceCount = await AdminDevice.countDocuments();
+    const deviceCount = await AdminDevice.countDocuments({
+      credentialId: { $exists: true, $ne: '' },
+    });
     if (deviceCount > 0) {
       return NextResponse.json(
         { error: 'Registration rejected. Only one active master admin device is permitted.' },
@@ -78,7 +81,20 @@ export async function POST(req: NextRequest) {
     }
 
     const { credential } = verification.registrationInfo;
+
+    // Validate registration credential outputs explicitly before DB creation
+    if (!credential || !credential.id) {
+      throw new Error('WebAuthn registration returned no credentialId');
+    }
+    if (!credential.publicKey) {
+      throw new Error('WebAuthn registration returned no publicKey');
+    }
+
     const publicKeyBase64 = Buffer.from(credential.publicKey).toString('base64');
+    if (!publicKeyBase64) {
+      throw new Error('WebAuthn registration public key conversion failed');
+    }
+
     const deviceId = `device-${crypto.randomUUID()}`;
 
     const adminDevice = await AdminDevice.create({

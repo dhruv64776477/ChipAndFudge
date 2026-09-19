@@ -2,15 +2,19 @@ import { NextResponse } from 'next/server';
 import { generateAuthenticationOptions } from '@simplewebauthn/server';
 import type { AuthenticatorTransport } from '@simplewebauthn/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { AdminDevice } from '@/models/AdminDevice';
+import { AdminDevice, cleanupLegacyAdminDevice } from '@/models/AdminDevice';
 import { getWebAuthnConfig } from '@/lib/auth/webauthn';
 import { createChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/auth/session';
 
 export async function POST() {
   try {
     await connectToDatabase();
+    await cleanupLegacyAdminDevice();
 
-    const adminDevice = await AdminDevice.findOne();
+    const adminDevice = await AdminDevice.findOne({
+      credentialId: { $exists: true, $ne: '' },
+    });
+
     if (!adminDevice) {
       return NextResponse.json(
         { error: 'No authorized master passkey device found. Please complete setup first.' },
@@ -18,13 +22,13 @@ export async function POST() {
       );
     }
 
-    const { rpID } = getWebAuthnConfig();
-
-    if (!rpID) {
-      throw new Error('Missing WEBAUTHN_RP_ID');
-    }
     if (!adminDevice.credentialId) {
       throw new Error('Missing AdminDevice credentialId');
+    }
+
+    const { rpID } = getWebAuthnConfig();
+    if (!rpID) {
+      throw new Error('Missing WEBAUTHN_RP_ID');
     }
 
     console.log('[WebAuthn Login Options Inputs]', {
