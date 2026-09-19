@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
     const deviceId = `device-${crypto.randomUUID()}`;
 
     const adminDevice = await AdminDevice.create({
+      singletonKey: 'primary',
       deviceId,
       credentialId: credential.id,
       publicKey: publicKeyBase64,

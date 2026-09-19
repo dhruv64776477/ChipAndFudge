@@ -13,7 +13,8 @@ export default function AdminPage() {
     async function verifyAuth() {
       try {
         const res = await fetch('/api/admin/auth/session');
-        if (!res.ok) {
+        const data = await res.json();
+        if (!res.ok || !data.isAuthenticated) {
           router.replace('/admin/login');
           return;
         }

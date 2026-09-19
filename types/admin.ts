@@ -1,5 +1,6 @@
 export interface IAdminDevice {
   _id?: string;
+  singletonKey?: string;
   deviceId: string;
   credentialId: string;
   publicKey: string; // Base64-encoded COSE public key
@@ -18,4 +19,3 @@ export interface AdminSessionPayload {
   exp?: number;
   [key: string]: unknown;
 }
-

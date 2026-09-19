@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IAdminDeviceDocument extends Document {
+  singletonKey: string;
   deviceId: string;
   credentialId: string;
   publicKey: string; // Base64-encoded COSE public key
@@ -12,6 +13,12 @@ export interface IAdminDeviceDocument extends Document {
 
 const AdminDeviceSchema = new Schema<IAdminDeviceDocument>(
   {
+    singletonKey: {
+      type: String,
+      default: 'primary',
+      unique: true,
+      index: true,
+    },
     deviceId: {
       type: String,
       required: true,
