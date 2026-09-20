@@ -25,7 +25,7 @@ export const MENU_ITEMS: MenuItem[] = [
   {
     name: 'Fusion Jhal Muri',
     originalPrice: 49,
-    sellingPrice: 39,
+    sellingPrice: 29,
   },
   {
     name: 'Combo',

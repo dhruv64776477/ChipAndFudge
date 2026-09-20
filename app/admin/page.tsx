@@ -1,9 +1,15 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { PlusCircle, QrCode, LogOut, Utensils } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  PlusCircle,
+  QrCode,
+  LogOut,
+  MessageSquareText,
+  Utensils,
+} from "lucide-react";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -12,14 +18,14 @@ export default function AdminPage() {
   useEffect(() => {
     async function verifyAuth() {
       try {
-        const res = await fetch('/api/admin/auth/session');
+        const res = await fetch("/api/admin/auth/session");
         const data = await res.json();
         if (!res.ok || !data.isAuthenticated) {
-          router.replace('/admin/login');
+          router.replace("/admin/login");
           return;
         }
       } catch {
-        router.replace('/admin/login');
+        router.replace("/admin/login");
         return;
       } finally {
         setCheckingAuth(false);
@@ -30,11 +36,11 @@ export default function AdminPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/admin/auth/logout', { method: 'POST' });
+      await fetch("/api/admin/auth/logout", { method: "POST" });
     } catch {
       // ignore
     }
-    router.replace('/admin/login');
+    router.replace("/admin/login");
   };
 
   if (checkingAuth) {
@@ -91,6 +97,22 @@ export default function AdminPage() {
           </span>
           <span className="block text-xs text-zinc-400 mt-1 font-medium">
             Camera QR scanner to close order
+          </span>
+        </Link>
+
+        {/* Task 3: WhatsApp Setup */}
+        <Link
+          href="/admin/whatsapp"
+          className="group block w-full p-6 rounded-3xl bg-gradient-to-b from-[#25150d] to-[#170c07] border border-[#442617] hover:border-amber-500/60 shadow-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.99] text-center"
+        >
+          <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-black transition-colors">
+            <MessageSquareText className="w-6 h-6" />
+          </div>
+          <span className="block text-lg font-black uppercase tracking-wider text-white group-hover:text-amber-300 transition-colors">
+            WhatsApp Setup
+          </span>
+          <span className="block text-xs text-zinc-400 mt-1 font-medium">
+            Connect and monitor WhatsApp delivery
           </span>
         </Link>
       </main>
