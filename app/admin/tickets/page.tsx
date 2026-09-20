@@ -150,9 +150,9 @@ export default function AdminTicketsPage() {
                   <div className="text-xs text-white font-bold mb-0.5">{t.name}</div>
                   <div className="text-[11px] font-mono text-zinc-400 mb-2">{t.mobNo}</div>
 
-                  {t.items && t.items.length > 0 && (
+                  {t.orderItems && t.orderItems.length > 0 && (
                     <div className="text-[11px] text-zinc-300 truncate mb-2">
-                      {t.items.join(', ')}
+                      {t.orderItems.map((item) => `${item.quantity}x ${item.name}`).join(', ')}
                     </div>
                   )}
                 </div>
@@ -160,7 +160,7 @@ export default function AdminTicketsPage() {
                 <div className="pt-2 border-t border-[#2e190f] flex items-center justify-between">
                   <div className="text-xs font-black text-amber-400 flex items-center">
                     <IndianRupee className="h-3 w-3" />
-                    {t.amount || 199}
+                    {t.grandTotal ?? 0}
                   </div>
                   <button
                     onClick={() => handleOpenQr(t)}

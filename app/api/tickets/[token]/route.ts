@@ -37,6 +37,8 @@ export async function GET(
       createdAt: ticket.createdAt.toISOString(),
       closedAt: ticket.closedAt ? ticket.closedAt.toISOString() : null,
       qrDataUrl,
+      orderItems: ticket.orderItems ?? [],
+      grandTotal: ticket.grandTotal ?? 0,
     });
   } catch (error: unknown) {
     console.error('Public ticket fetch error:', error);

@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     const totalToday = todayTickets.length;
     const openQueue = todayTickets.filter((t) => t.status === 'OPEN').length;
     const closedCount = todayTickets.filter((t) => t.status === 'CLOSED').length;
-    const revenueToday = todayTickets.reduce((acc, t) => acc + (t.amount || 0), 0);
+    const revenueToday = todayTickets.reduce((acc, t) => acc + (t.grandTotal || 0), 0);
 
     return NextResponse.json({
       tickets,
@@ -109,11 +109,14 @@ export async function POST(req: NextRequest) {
           mobNo: result.ticket.mobNo,
           status: result.ticket.status,
           createdAt: result.ticket.createdAt,
+          orderItems: result.ticket.orderItems,
+          grandTotal: result.ticket.grandTotal,
         },
         url: result.customerUrl,
         customerUrl: result.customerUrl,
         qrDataUrl: result.qrDataUrl,
         rawToken: result.rawToken,
+        whatsapp: result.whatsapp,
       },
       { status: 201 }
     );
@@ -123,5 +126,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
-
-

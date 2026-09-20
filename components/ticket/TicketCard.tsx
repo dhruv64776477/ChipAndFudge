@@ -2,7 +2,7 @@
 
 import { PublicTicketResponse } from '@/types/ticket';
 import TicketStatus from './TicketStatus';
-import { Cookie, Clock, Utensils, RefreshCw, Share2 } from 'lucide-react';
+import { Cookie, Clock, Utensils, RefreshCw, Share2, IndianRupee } from 'lucide-react';
 import { useState } from 'react';
 
 interface TicketCardProps {
@@ -20,7 +20,7 @@ export default function TicketCard({ ticket, onRefresh, refreshing }: TicketCard
       try {
         await navigator.share({
           title: `The Chip & Fudge - Ticket ${ticket.ticketId}`,
-          text: `Brownie bowl ticket for ${ticket.name}`,
+          text: `Order ticket for ${ticket.name}`,
           url,
         });
       } catch {
@@ -59,7 +59,7 @@ export default function TicketCard({ ticket, onRefresh, refreshing }: TicketCard
           THE CHIP &amp; FUDGE
         </div>
         <div className="text-sm font-semibold text-[#bda897] mb-3">
-          Brownie Bowls
+          Artisan Snacks &amp; Desserts
         </div>
 
         <h1 className="text-3xl font-black tracking-tight text-white mb-2">
@@ -84,23 +84,43 @@ export default function TicketCard({ ticket, onRefresh, refreshing }: TicketCard
           </span>
         </div>
 
-        {ticket.items && ticket.items.length > 0 && (
+        {ticket.orderItems && ticket.orderItems.length > 0 && (
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-amber-400 mb-2 flex items-center gap-1.5">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-amber-400 mb-3 flex items-center gap-1.5">
               <Utensils className="h-3.5 w-3.5" />
-              <span>Bowl Details</span>
+              <span>Order Details</span>
             </div>
-            <ul className="space-y-1.5">
-              {ticket.items.map((item, idx) => (
-                <li
+            <div className="space-y-2">
+              {ticket.orderItems.map((item, idx) => (
+                <div
                   key={idx}
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-[#25150d] border border-[#392114] text-xs text-[#f4eae0] font-medium"
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-[#25150d] border border-[#392114] text-xs"
                 >
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-                  <span>{item}</span>
-                </li>
+                  <div className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                    <span className="text-[#f4eae0] font-medium">{item.name}</span>
+                    <span className="text-zinc-500">×{item.quantity}</span>
+                  </div>
+                  <div className="flex items-center gap-1 font-bold text-amber-300">
+                    <IndianRupee className="h-3 w-3" />
+                    {item.total}
+                  </div>
+                </div>
               ))}
-            </ul>
+
+              {/* Grand Total */}
+              {ticket.grandTotal !== undefined && (
+                <div className="flex items-center justify-between px-2.5 pt-2 border-t border-[#2e1a11] mt-1">
+                  <span className="text-xs font-black text-zinc-300 uppercase tracking-wider">
+                    Grand Total
+                  </span>
+                  <span className="flex items-center gap-1 font-black text-sm text-amber-400">
+                    <IndianRupee className="h-3.5 w-3.5" />
+                    {ticket.grandTotal}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -1,20 +1,37 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import { TicketStatus } from '@/types/ticket';
 
+export interface IOrderItemDocument {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
 export interface ITicketDocument extends Document {
   ticketId: string;
   name: string;
   mobNo: string;
   qrTokenHash: string;
   status: TicketStatus;
-  items?: string[];
-  amount?: number;
+  orderItems: IOrderItemDocument[];
+  grandTotal: number;
   notes?: string;
   closedAt: Date | null;
   closedByDeviceId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const OrderItemSchema = new Schema<IOrderItemDocument>(
+  {
+    name: { type: String, required: true, trim: true },
+    quantity: { type: Number, required: true, min: 1 },
+    unitPrice: { type: Number, required: true, min: 0 },
+    total: { type: Number, required: true, min: 0 },
+  },
+  { _id: false }
+);
 
 const TicketSchema = new Schema<ITicketDocument>(
   {
@@ -47,11 +64,11 @@ const TicketSchema = new Schema<ITicketDocument>(
       default: 'OPEN',
       index: true,
     },
-    items: {
-      type: [String],
-      default: ['Brownie Bowl'],
+    orderItems: {
+      type: [OrderItemSchema],
+      default: [],
     },
-    amount: {
+    grandTotal: {
       type: Number,
       default: 0,
     },
@@ -85,4 +102,3 @@ if (process.env.NODE_ENV !== 'production' && mongoose.models.Ticket) {
 
 export const Ticket: Model<ITicketDocument> =
   mongoose.models.Ticket || mongoose.model<ITicketDocument>('Ticket', TicketSchema);
-

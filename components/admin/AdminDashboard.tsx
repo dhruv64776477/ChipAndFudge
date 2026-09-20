@@ -60,6 +60,15 @@ export default function AdminDashboard({
               <div className="text-3xl sm:text-4xl font-black text-emerald-400">{stats.closedCount}</div>
             </div>
           </div>
+
+          {/* Revenue */}
+          {stats.revenueToday > 0 && (
+            <div className="mt-4 pt-4 border-t border-[#2e1a11] flex items-center justify-center gap-1.5 text-amber-400 font-black text-lg">
+              <IndianRupee className="h-4 w-4" />
+              <span>{stats.revenueToday}</span>
+              <span className="text-xs text-zinc-500 font-semibold ml-1">today</span>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons (Section 14) */}
@@ -131,17 +140,17 @@ export default function AdminDashboard({
                   <div className="text-xs text-white font-bold mb-1">{t.name}</div>
                   <div className="text-[11px] font-mono text-zinc-400 mb-2">{t.mobNo}</div>
 
-                  {t.items && t.items.length > 0 && (
+                  {t.orderItems && t.orderItems.length > 0 && (
                     <div className="text-[11px] text-zinc-300 mb-2 truncate">
-                      {t.items.join(', ')}
+                      {t.orderItems.map((item) => `${item.name} ×${item.quantity}`).join(', ')}
                     </div>
                   )}
                 </div>
 
                 <div className="pt-2 border-t border-[#2e190f] flex items-center justify-between">
-                  <div className="text-xs font-black text-amber-400 flex items-center">
+                  <div className="text-xs font-black text-amber-400 flex items-center gap-0.5">
                     <IndianRupee className="h-3 w-3" />
-                    {t.amount || 199}
+                    {t.grandTotal ?? 0}
                   </div>
                   <button
                     onClick={() => onOpenQrModal(t)}

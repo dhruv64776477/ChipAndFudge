@@ -4,7 +4,14 @@ import { Ticket, ITicketDocument } from '@/models/Ticket';
 import { AuditLog } from '@/models/AuditLog';
 import { generateSecureTicketId, generateSecureToken } from './token';
 import { hashToken } from '@/lib/security/hash';
-import { CreateTicketInput, CloseTicketResult } from '@/types/ticket';
+import { CreateTicketInput, CloseTicketResult, OrderItem } from '@/types/ticket';
+import { MENU_MAP } from '@/lib/menu/items';
+import { sendWhatsAppLink } from '@/lib/whatsapp/sender';
+
+export interface WhatsAppResult {
+  sent: boolean;
+  error?: string;
+}
 
 export interface CreateTicketResult {
   ticket: {
@@ -13,10 +20,13 @@ export interface CreateTicketResult {
     mobNo: string;
     status: string;
     createdAt: Date;
+    orderItems: OrderItem[];
+    grandTotal: number;
   };
   rawToken: string;
   customerUrl: string;
   qrDataUrl: string;
+  whatsapp: WhatsAppResult;
 }
 
 /**
@@ -54,6 +64,57 @@ export function extractTokenFromInput(input: string): string {
   return trimmed;
 }
 
+/**
+ * Compute order items with server-side prices from menu constants.
+ * Client-submitted prices are ignored — only quantities are trusted.
+ */
+function computeOrderItems(
+  inputItems: Array<{ name: string; quantity: number }>
+): { orderItems: OrderItem[]; grandTotal: number } {
+  const orderItems: OrderItem[] = [];
+  let grandTotal = 0;
+
+  for (const input of inputItems) {
+    const menuItem = MENU_MAP.get(input.name);
+    if (!menuItem) {
+      throw new Error(`Unknown menu item: ${input.name}`);
+    }
+    const unitPrice = menuItem.sellingPrice;
+    const total = unitPrice * input.quantity;
+    orderItems.push({
+      name: input.name,
+      quantity: input.quantity,
+      unitPrice,
+      total,
+    });
+    grandTotal += total;
+  }
+
+  return { orderItems, grandTotal };
+}
+
+/**
+ * Send the ticket link to the customer's WhatsApp via integrated WhatsApp module.
+ * This is non-fatal — ticket creation succeeds even if WhatsApp fails.
+ */
+async function sendTicketWhatsApp(
+  mobNo: string,
+  customerUrl: string
+): Promise<WhatsAppResult> {
+  try {
+    const message = 'Your ticket has been created for The Chip & Fudge.';
+    const result = await sendWhatsAppLink(mobNo, customerUrl, message);
+
+    if (result.success) {
+      return { sent: true };
+    }
+    return { sent: false, error: result.error || 'WhatsApp message failed to send' };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'WhatsApp service error';
+    return { sent: false, error: message };
+  }
+}
+
 export async function createTicket(
   input: CreateTicketInput,
   baseUrl: string,
@@ -75,26 +136,28 @@ export async function createTicket(
   const rawToken = generateSecureToken();
   const qrTokenHash = hashToken(rawToken);
 
-  // 3. Persist ticket in database
+  // 3. Compute order items and grand total server-side (never trust client prices)
+  const { orderItems, grandTotal } = computeOrderItems(input.orderItems);
+
+  // 4. Persist ticket in database
   const ticket = await Ticket.create({
     ticketId,
     name: input.name.trim(),
     mobNo: input.mobNo.trim(),
     qrTokenHash,
     status: 'OPEN',
-    items: ['Brownie Bowl'],
-    amount: 0,
+    orderItems,
+    grandTotal,
     notes: '',
   });
 
-  // 4. Build customer URL and QR code (matching https://thechipandfudge.com/t/<ticketId>)
+  // 5. Build customer URL and QR code
   const customerUrl = `${baseUrl}/t/${ticket.ticketId}`;
 
-  // The QR code encodes the secret token directly (or customer URL)
-  // Admin scanner can scan either directly
+  // The QR code encodes the secret token directly
   const qrDataUrl = await generateQrDataUrl(rawToken);
 
-  // 5. Record audit log
+  // 6. Record audit log
   await AuditLog.create({
     ticketId: ticket._id,
     action: 'TICKET_CREATED',
@@ -104,8 +167,12 @@ export async function createTicket(
       ticketId: ticket.ticketId,
       name: ticket.name,
       mobNo: ticket.mobNo,
+      grandTotal,
     },
   });
+
+  // 7. Send WhatsApp message (non-fatal — ticket is already saved)
+  const whatsapp = await sendTicketWhatsApp(ticket.mobNo, customerUrl);
 
   return {
     ticket: {
@@ -114,10 +181,13 @@ export async function createTicket(
       mobNo: ticket.mobNo,
       status: ticket.status,
       createdAt: ticket.createdAt,
+      orderItems,
+      grandTotal,
     },
     rawToken,
     customerUrl,
     qrDataUrl,
+    whatsapp,
   };
 }
 
@@ -259,4 +329,3 @@ export async function closeTicketAtomically(
     error: 'Invalid QR token or Ticket ID. Ticket not found.',
   };
 }
-
