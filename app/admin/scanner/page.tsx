@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import TicketScanner from '@/components/admin/TicketScanner';
 import { playSuccessChime, playWarningBeep } from '@/lib/audio';
+import { ITicket } from '@/types/ticket';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -12,6 +13,8 @@ import {
   RefreshCw,
   KeyRound,
   Check,
+  Flame,
+  Clock,
 } from 'lucide-react';
 
 interface OrderItem {
@@ -40,6 +43,44 @@ export default function AdminScannerPage() {
   const [closing, setClosing] = useState(false);
   const [manualToken, setManualToken] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const [activeTickets, setActiveTickets] = useState<ITicket[]>([]);
+  const [activeLoading, setActiveLoading] = useState(true);
+  const [activeError, setActiveError] = useState<string | null>(null);
+
+  const fetchActiveTickets = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/tickets?status=OPEN');
+      const contentType = res.headers.get('content-type');
+      const text = await res.text();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let data: any = null;
+      if (contentType?.includes('application/json') && text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || `Failed to fetch active tickets (${res.status})`);
+      }
+
+      setActiveTickets(data?.tickets || []);
+      setActiveError(null);
+    } catch (err: unknown) {
+      setActiveError(err instanceof Error ? err.message : 'Failed to load active tickets');
+    } finally {
+      setActiveLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchActiveTickets();
+    const interval = setInterval(fetchActiveTickets, 5000);
+    return () => clearInterval(interval);
+  }, [fetchActiveTickets]);
 
   const handleScan = async (token: string) => {
     if (loading || closing || scannedTicket) return;
@@ -151,6 +192,7 @@ export default function AdminScannerPage() {
             : null
         );
       }
+      fetchActiveTickets();
     } catch (err: unknown) {
       playWarningBeep();
       setErrorMsg(err instanceof Error ? err.message : 'Error closing ticket.');
@@ -167,15 +209,18 @@ export default function AdminScannerPage() {
     setManualToken('');
   };
 
-  const formatTime = (dateStr: string | null) => {
-    if (!dateStr) return '';
+  const formatDateTime = (dateVal: string | Date | undefined) => {
+    if (!dateVal) return '';
     try {
-      return new Date(dateStr).toLocaleTimeString([], {
+      const d = new Date(dateVal);
+      return d.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
       });
     } catch {
-      return dateStr;
+      return String(dateVal);
     }
   };
 
@@ -195,7 +240,7 @@ export default function AdminScannerPage() {
         </span>
       </div>
 
-      <main className="max-w-md w-full mx-auto my-auto py-6">
+      <main className="max-w-md w-full mx-auto my-auto py-6 space-y-6">
         {/* State 1: Scanner Active */}
         {!scannedTicket && (
           <div className="rounded-3xl border border-[#3b2316] bg-gradient-to-b from-[#20120b] to-[#140b07] p-6 shadow-2xl space-y-5 text-center">
@@ -411,7 +456,7 @@ export default function AdminScannerPage() {
               </div>
               {scannedTicket.closedAt && (
                 <p className="text-xs text-zinc-400 font-medium">
-                  Closed at: {formatTime(scannedTicket.closedAt)}
+                  Closed at: {formatDateTime(scannedTicket.closedAt)}
                 </p>
               )}
             </div>
@@ -451,6 +496,114 @@ export default function AdminScannerPage() {
             </button>
           </div>
         )}
+
+        {/* Active Tickets List */}
+        <div className="pt-2 space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <Flame className="w-4 h-4 text-amber-500 animate-pulse" />
+              <h2 className="text-sm font-black uppercase text-white tracking-wider">
+                Active Tickets
+              </h2>
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[11px] font-mono font-bold">
+                {activeTickets.length}
+              </span>
+            </div>
+            <button
+              onClick={() => fetchActiveTickets()}
+              disabled={activeLoading}
+              className="p-1.5 rounded-lg bg-[#22140d] border border-[#3e2417] text-zinc-400 hover:text-amber-400 transition-colors disabled:opacity-50 cursor-pointer"
+              title="Refresh Active Tickets"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${activeLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
+          {activeLoading && activeTickets.length === 0 ? (
+            <div className="p-8 rounded-3xl bg-[#180e09] border border-[#351e12] text-center space-y-2">
+              <RefreshCw className="w-5 h-5 text-amber-500 animate-spin mx-auto" />
+              <p className="text-xs text-zinc-400 font-medium">Loading active tickets...</p>
+            </div>
+          ) : activeError && activeTickets.length === 0 ? (
+            <div className="p-4 rounded-3xl bg-rose-950/30 border border-rose-900/50 text-center space-y-2">
+              <p className="text-xs text-rose-300 font-bold">{activeError}</p>
+              <button
+                onClick={() => fetchActiveTickets()}
+                className="px-3 py-1 rounded-lg bg-rose-900/40 text-rose-200 text-xs font-bold hover:bg-rose-900/60"
+              >
+                Retry
+              </button>
+            </div>
+          ) : activeTickets.length === 0 ? (
+            <div className="p-8 rounded-3xl bg-[#160e09] border border-[#2e190f] text-center space-y-2">
+              <CheckCircle2 className="w-8 h-8 text-emerald-500/60 mx-auto" />
+              <p className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
+                No Active Tickets
+              </p>
+              <p className="text-[11px] text-zinc-500">
+                All customer orders have been served or closed.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {activeTickets.map((t) => (
+                <div
+                  key={t._id || t.ticketId}
+                  onClick={() => handleScan(t.ticketId)}
+                  className="group rounded-3xl border border-[#382014] bg-gradient-to-r from-[#1f120a] to-[#170c06] p-5 hover:border-amber-500/50 hover:from-[#28170e] hover:to-[#1e1008] transition-all cursor-pointer shadow-xl space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-black text-amber-400">
+                          #{t.ticketId}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          OPEN
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold text-white mt-1">{t.name}</p>
+                      <p className="text-xs text-zinc-400 font-mono">{t.mobNo}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-black text-amber-400 font-mono">
+                        ₹{t.grandTotal ?? 0}
+                      </div>
+                      <div className="text-[10px] text-zinc-400 font-medium flex items-center gap-1 justify-end mt-1">
+                        <Clock className="w-3 h-3 text-zinc-500" />
+                        <span>{formatDateTime(t.createdAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {t.orderItems && t.orderItems.length > 0 && (
+                    <div className="pt-2.5 border-t border-[#2d180d] space-y-1.5">
+                      <div className="text-[10px] uppercase font-bold text-amber-400/80 tracking-wider">
+                        Ordered Items
+                      </div>
+                      <div className="space-y-1">
+                        {t.orderItems.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-xs">
+                            <span className="text-zinc-300 font-medium">
+                              {item.name} <span className="text-zinc-400 font-mono">× {item.quantity}</span>
+                            </span>
+                            <span className="font-mono text-zinc-400 text-[11px]">
+                              ₹{item.total}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-1 flex items-center justify-end text-[11px] font-bold text-amber-400/80 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all">
+                    <span>Click to process ticket →</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
 
       <footer className="max-w-md w-full mx-auto text-center pb-2">
