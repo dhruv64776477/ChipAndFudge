@@ -14,6 +14,13 @@ import {
   Check,
 } from 'lucide-react';
 
+interface OrderItem {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
 interface TicketPreview {
   ticketId: string;
   name: string;
@@ -21,6 +28,8 @@ interface TicketPreview {
   status: 'OPEN' | 'CLOSED';
   closedAt: string | null;
   rawToken: string;
+  orderItems?: OrderItem[];
+  grandTotal?: number;
 }
 
 export default function AdminScannerPage() {
@@ -46,6 +55,7 @@ export default function AdminScannerPage() {
 
       const contentType = res.headers.get('content-type');
       const text = await res.text();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let data: any = null;
       if (contentType?.includes('application/json') && text) {
         try {
@@ -75,6 +85,8 @@ export default function AdminScannerPage() {
         status: ticket.status,
         closedAt: ticket.closedAt,
         rawToken: token,
+        orderItems: ticket.orderItems,
+        grandTotal: ticket.grandTotal,
       });
 
       if (ticket.status === 'CLOSED' || data?.alreadyClosed) {
@@ -105,6 +117,7 @@ export default function AdminScannerPage() {
 
       const contentType = res.headers.get('content-type');
       const text = await res.text();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let data: any = null;
       if (contentType?.includes('application/json') && text) {
         try {
@@ -132,6 +145,8 @@ export default function AdminScannerPage() {
                 ...prev,
                 status: 'CLOSED',
                 closedAt: data.ticket.closedAt,
+                orderItems: data.ticket.orderItems || prev.orderItems,
+                grandTotal: data.ticket.grandTotal ?? prev.grandTotal,
               }
             : null
         );
@@ -241,7 +256,7 @@ export default function AdminScannerPage() {
 
         {/* State 2: Ticket Found & OPEN (ready to close) */}
         {scannedTicket && !isJustClosed && !isAlreadyClosed && (
-          <div className="rounded-3xl border border-[#3e2417] bg-gradient-to-b from-[#22130b] to-[#120a06] p-6 sm:p-8 shadow-2xl text-center space-y-5">
+          <div className="rounded-3xl border border-[#3e2417] bg-gradient-to-b from-[#22130b] to-[#120a06] p-6 sm:p-8 shadow-2xl text-center space-y-4">
             <div className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-amber-400 bg-amber-950/40 border border-amber-800/60 px-3.5 py-1 rounded-full">
               <span>Ticket Found</span>
             </div>
@@ -254,17 +269,46 @@ export default function AdminScannerPage() {
               <p className="text-xs text-zinc-400 font-mono mt-0.5">{scannedTicket.mobNo}</p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[#190e08] border border-[#321c11] space-y-1.5">
+            <div className="p-3.5 rounded-2xl bg-[#190e08] border border-[#321c11] space-y-1">
               <p className="text-[11px] uppercase font-bold text-zinc-500 tracking-wider">
                 Ticket ID
               </p>
-              <p className="text-2xl font-black tracking-wider text-amber-400 font-mono">
+              <p className="text-xl font-black tracking-wider text-amber-400 font-mono">
                 {scannedTicket.ticketId}
               </p>
               <div className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 mt-1">
                 STATUS: OPEN
               </div>
             </div>
+
+            {/* Order Items Breakdown */}
+            {scannedTicket.orderItems && scannedTicket.orderItems.length > 0 && (
+              <div className="rounded-2xl bg-[#190e08] border border-[#321c11] p-4 text-left space-y-2">
+                <div className="text-[11px] uppercase font-bold text-amber-400 tracking-wider">
+                  Ordered Items
+                </div>
+                {scannedTicket.orderItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-xs">
+                    <span className="text-white font-medium">
+                      {item.name} <span className="text-zinc-400 font-mono">× {item.quantity}</span>
+                    </span>
+                    <span className="font-mono text-zinc-300">
+                      ₹{item.unitPrice} × {item.quantity} = <strong className="text-amber-400">₹{item.total}</strong>
+                    </span>
+                  </div>
+                ))}
+                {scannedTicket.grandTotal !== undefined && (
+                  <div className="pt-2 border-t border-[#321c11] flex items-center justify-between">
+                    <span className="text-xs font-black text-zinc-300 uppercase tracking-wider">
+                      Grand Total
+                    </span>
+                    <span className="text-base font-black text-amber-400">
+                      ₹{scannedTicket.grandTotal}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {errorMsg && (
               <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300 font-bold">
@@ -296,7 +340,7 @@ export default function AdminScannerPage() {
 
         {/* State 3: Successfully Closed */}
         {scannedTicket && isJustClosed && (
-          <div className="rounded-3xl border border-emerald-800/50 bg-gradient-to-b from-[#182618] via-[#121c12] to-[#0c140c] p-6 sm:p-8 shadow-2xl text-center space-y-5">
+          <div className="rounded-3xl border border-emerald-800/50 bg-gradient-to-b from-[#182618] via-[#121c12] to-[#0c140c] p-6 sm:p-8 shadow-2xl text-center space-y-4">
             <div className="w-14 h-14 mx-auto rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
               <CheckCircle2 className="w-8 h-8" />
             </div>
@@ -306,11 +350,33 @@ export default function AdminScannerPage() {
                 ✓ Ticket Closed
               </h2>
               <p className="text-lg font-bold text-white mt-1">{scannedTicket.name}</p>
-              <p className="text-sm font-mono text-zinc-300 mt-0.5">{scannedTicket.ticketId}</p>
+              <p className="text-sm font-mono text-zinc-300 mt-0.5">Ticket ID: {scannedTicket.ticketId}</p>
             </div>
 
+            {scannedTicket.orderItems && scannedTicket.orderItems.length > 0 && (
+              <div className="rounded-2xl bg-black/40 border border-emerald-500/20 p-4 text-left space-y-2">
+                <div className="text-[11px] uppercase font-bold text-emerald-400 tracking-wider">
+                  Order Summary
+                </div>
+                {scannedTicket.orderItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-200">
+                      {item.name} × {item.quantity}
+                    </span>
+                    <span className="font-mono text-emerald-300 font-bold">₹{item.total}</span>
+                  </div>
+                ))}
+                {scannedTicket.grandTotal !== undefined && (
+                  <div className="pt-2 border-t border-emerald-500/20 flex items-center justify-between">
+                    <span className="text-xs font-black text-zinc-300 uppercase">Grand Total</span>
+                    <span className="text-base font-black text-emerald-400">₹{scannedTicket.grandTotal}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <p className="text-xs text-zinc-400 font-medium max-w-xs mx-auto">
-              This ticket can no longer be used. The order has been fulfilled.
+              This ticket is now CLOSED and cannot be re-opened.
             </p>
 
             <button
@@ -325,7 +391,7 @@ export default function AdminScannerPage() {
 
         {/* State 4: Already Closed */}
         {scannedTicket && isAlreadyClosed && !isJustClosed && (
-          <div className="rounded-3xl border border-rose-900/50 bg-gradient-to-b from-[#271313] via-[#1c0c0c] to-[#120707] p-6 sm:p-8 shadow-2xl text-center space-y-5">
+          <div className="rounded-3xl border border-rose-900/50 bg-gradient-to-b from-[#271313] via-[#1c0c0c] to-[#120707] p-6 sm:p-8 shadow-2xl text-center space-y-4">
             <div className="w-14 h-14 mx-auto rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
               <XCircle className="w-8 h-8" />
             </div>
@@ -335,7 +401,7 @@ export default function AdminScannerPage() {
                 Ticket Already Closed
               </h2>
               <p className="text-lg font-bold text-white mt-1">{scannedTicket.name}</p>
-              <p className="text-sm font-mono text-zinc-300 mt-0.5">{scannedTicket.ticketId}</p>
+              <p className="text-sm font-mono text-zinc-300 mt-0.5">Ticket ID: {scannedTicket.ticketId}</p>
             </div>
 
             <div className="p-3 rounded-2xl bg-[#1a0808] border border-[#3b1212] space-y-1">
@@ -349,6 +415,28 @@ export default function AdminScannerPage() {
                 </p>
               )}
             </div>
+
+            {scannedTicket.orderItems && scannedTicket.orderItems.length > 0 && (
+              <div className="rounded-2xl bg-black/40 border border-rose-500/20 p-4 text-left space-y-2">
+                <div className="text-[11px] uppercase font-bold text-rose-400 tracking-wider">
+                  Order Details
+                </div>
+                {scannedTicket.orderItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-300">
+                      {item.name} × {item.quantity}
+                    </span>
+                    <span className="font-mono text-zinc-300">₹{item.total}</span>
+                  </div>
+                ))}
+                {scannedTicket.grandTotal !== undefined && (
+                  <div className="pt-2 border-t border-rose-500/20 flex items-center justify-between">
+                    <span className="text-xs font-black text-zinc-300 uppercase">Grand Total</span>
+                    <span className="text-base font-black text-rose-400">₹{scannedTicket.grandTotal}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <p className="text-xs text-zinc-400 font-medium">
               This ticket has already been used and cannot be re-opened.

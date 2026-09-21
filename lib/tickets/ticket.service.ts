@@ -6,12 +6,6 @@ import { generateSecureTicketId, generateSecureToken } from './token';
 import { hashToken } from '@/lib/security/hash';
 import { CreateTicketInput, CloseTicketResult, OrderItem } from '@/types/ticket';
 import { MENU_MAP } from '@/lib/menu/items';
-import { sendWhatsAppLink } from '@/lib/whatsapp/sender';
-
-export interface WhatsAppResult {
-  sent: boolean;
-  error?: string;
-}
 
 export interface CreateTicketResult {
   ticket: {
@@ -26,7 +20,6 @@ export interface CreateTicketResult {
   rawToken: string;
   customerUrl: string;
   qrDataUrl: string;
-  whatsapp: WhatsAppResult;
 }
 
 /**
@@ -93,28 +86,6 @@ function computeOrderItems(
   return { orderItems, grandTotal };
 }
 
-/**
- * Send the ticket link to the customer's WhatsApp via integrated WhatsApp module.
- * This is non-fatal — ticket creation succeeds even if WhatsApp fails.
- */
-async function sendTicketWhatsApp(
-  mobNo: string,
-  customerUrl: string
-): Promise<WhatsAppResult> {
-  try {
-    const message = 'Your ticket has been created for The Chip & Fudge.';
-    const result = await sendWhatsAppLink(mobNo, customerUrl, message);
-
-    if (result.success) {
-      return { sent: true };
-    }
-    return { sent: false, error: result.error || 'WhatsApp message failed to send' };
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'WhatsApp service error';
-    return { sent: false, error: message };
-  }
-}
-
 export async function createTicket(
   input: CreateTicketInput,
   baseUrl: string,
@@ -171,9 +142,6 @@ export async function createTicket(
     },
   });
 
-  // 7. Send WhatsApp message (non-fatal — ticket is already saved)
-  const whatsapp = await sendTicketWhatsApp(ticket.mobNo, customerUrl);
-
   return {
     ticket: {
       ticketId: ticket.ticketId,
@@ -187,7 +155,6 @@ export async function createTicket(
     rawToken,
     customerUrl,
     qrDataUrl,
-    whatsapp,
   };
 }
 
@@ -236,6 +203,8 @@ export async function lookupTicketForAdmin(input: string): Promise<CloseTicketRe
       mobNo: ticket.mobNo,
       status: ticket.status,
       closedAt: ticket.closedAt,
+      orderItems: ticket.orderItems,
+      grandTotal: ticket.grandTotal,
     },
   };
 }
@@ -299,6 +268,8 @@ export async function closeTicketAtomically(
         mobNo: updatedTicket.mobNo,
         status: updatedTicket.status,
         closedAt: updatedTicket.closedAt,
+        orderItems: updatedTicket.orderItems,
+        grandTotal: updatedTicket.grandTotal,
       },
     };
   }
@@ -318,6 +289,8 @@ export async function closeTicketAtomically(
         mobNo: existing.mobNo,
         status: existing.status,
         closedAt: existing.closedAt,
+        orderItems: existing.orderItems,
+        grandTotal: existing.grandTotal,
       },
       error: `Ticket ${existing.ticketId} is already CLOSED`,
     };

@@ -56,6 +56,8 @@ export interface CloseTicketResult {
     mobNo: string;
     status: TicketStatus;
     closedAt: Date | null;
+    orderItems?: OrderItem[];
+    grandTotal?: number;
   };
   alreadyClosed?: boolean;
   notFound?: boolean;

@@ -36,7 +36,6 @@ interface CreatedTicketResult {
   };
   customerUrl: string;
   qrDataUrl: string;
-  whatsapp?: { sent: boolean; error?: string };
 }
 
 export default function NewTicketPage() {
@@ -72,8 +71,13 @@ export default function NewTicketPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !mobNo.trim()) {
+    const cleanMobNo = mobNo.trim();
+    if (!name.trim() || !cleanMobNo) {
       setError('Customer name and mobile number are required.');
+      return;
+    }
+    if (!/^\d{10}$/.test(cleanMobNo)) {
+      setError('Mobile number must be exactly 10 digits.');
       return;
     }
     if (selectedItems.length === 0) {
@@ -95,7 +99,7 @@ export default function NewTicketPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          mobNo: mobNo.trim(),
+          mobNo: cleanMobNo,
           orderItems,
         }),
       });
@@ -129,7 +133,6 @@ export default function NewTicketPage() {
         ticket: data.ticket,
         customerUrl: data.url || data.customerUrl,
         qrDataUrl: data.qrDataUrl,
-        whatsapp: data.whatsapp,
       });
     } catch (err: unknown) {
       console.error('Create ticket error:', err);
@@ -141,7 +144,8 @@ export default function NewTicketPage() {
 
   const handleCopyLink = () => {
     if (createdResult) {
-      navigator.clipboard.writeText(createdResult.customerUrl);
+      const copyUrl = createdResult.customerUrl || `https://chip-and-fudge.vercel.app/t/${createdResult.ticket.ticketId}`;
+      navigator.clipboard.writeText(copyUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -209,16 +213,17 @@ export default function NewTicketPage() {
                 {/* Mobile Number */}
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">
-                    Mobile Number
+                    Mobile Number (10 digits)
                   </label>
                   <div className="relative">
                     <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                     <input
                       type="tel"
                       required
+                      maxLength={10}
                       placeholder="e.g. 9876543210"
                       value={mobNo}
-                      onChange={(e) => setMobNo(e.target.value)}
+                      onChange={(e) => setMobNo(e.target.value.replace(/\D/g, '').slice(0, 10))}
                       className="w-full pl-10 pr-4 py-3 rounded-2xl bg-[#27160e] border border-[#3e2316] text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-amber-500 font-mono"
                     />
                   </div>
@@ -329,35 +334,42 @@ export default function NewTicketPage() {
         ) : (
           /* ─── Ticket Created Display ─── */
           <div className="rounded-3xl border border-[#442617] bg-gradient-to-b from-[#22130b] to-[#120a06] p-6 sm:p-8 shadow-2xl text-center space-y-5">
-            <div className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/40 border border-emerald-800/60 px-3 py-1 rounded-full">
+            <div className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/40 border border-emerald-800/60 px-3.5 py-1 rounded-full">
               <CheckCircle2 className="w-4 h-4" />
-              <span>Ticket Created</span>
+              <span>Ticket Created Successfully</span>
             </div>
 
             <div>
               <p className="text-xs uppercase font-extrabold tracking-widest text-zinc-400">
-                Customer
+                Customer Name
               </p>
-              <h2 className="text-xl font-black text-white">{createdResult.ticket.name}</h2>
+              <h2 className="text-xl font-black text-white mt-0.5">{createdResult.ticket.name}</h2>
               <p className="text-xs text-zinc-400 font-mono mt-0.5">{createdResult.ticket.mobNo}</p>
             </div>
 
-            <div className="p-3 rounded-2xl bg-[#190e08] border border-[#321c11]">
+            <div className="p-3.5 rounded-2xl bg-[#190e08] border border-[#321c11] space-y-1">
               <p className="text-[11px] uppercase font-bold text-zinc-500 tracking-wider">
                 Ticket ID
               </p>
-              <p className="text-2xl font-black tracking-wider text-amber-400 font-mono mt-0.5">
+              <p className="text-2xl font-black tracking-wider text-amber-400 font-mono">
                 {createdResult.ticket.ticketId}
               </p>
-              <div className="mt-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                STATUS: {createdResult.ticket.status}
-              </div>
+            </div>
+
+            {/* Customer URL Display */}
+            <div className="p-3.5 rounded-2xl bg-[#160b06] border border-[#2d180d] text-left space-y-1">
+              <span className="text-[11px] uppercase font-bold text-zinc-400 tracking-wider block">
+                Customer URL
+              </span>
+              <span className="text-xs font-mono text-amber-300 break-all select-all block">
+                {createdResult.customerUrl}
+              </span>
             </div>
 
             {/* Order Summary */}
             {createdResult.ticket.orderItems && createdResult.ticket.orderItems.length > 0 && (
               <div className="rounded-2xl bg-[#190e08] border border-[#321c11] p-4 text-left space-y-2">
-                <div className="text-[11px] uppercase font-bold text-amber-400 tracking-wider mb-3">
+                <div className="text-[11px] uppercase font-bold text-amber-400 tracking-wider mb-2">
                   Order Summary
                 </div>
                 {createdResult.ticket.orderItems.map((item, idx) => (
@@ -379,24 +391,6 @@ export default function NewTicketPage() {
               </div>
             )}
 
-            {/* WhatsApp Status */}
-            {createdResult.whatsapp && (
-              <div
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border ${
-                  createdResult.whatsapp.sent
-                    ? 'bg-emerald-950/30 border-emerald-800/40 text-emerald-400'
-                    : 'bg-zinc-900/50 border-zinc-800/40 text-zinc-400'
-                }`}
-              >
-                <MessageCircle className="w-4 h-4 shrink-0" />
-                <span>
-                  {createdResult.whatsapp.sent
-                    ? 'WhatsApp message sent to customer'
-                    : `WhatsApp not sent${createdResult.whatsapp.error ? ` — ${createdResult.whatsapp.error}` : ''}`}
-                </span>
-              </div>
-            )}
-
             {/* QR Section */}
             {showQr && (
               <div className="bg-white p-3 rounded-2xl inline-block shadow-xl">
@@ -409,16 +403,42 @@ export default function NewTicketPage() {
               </div>
             )}
 
-            {/* Actions */}
-            <div className="space-y-2.5 pt-2">
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                className="w-full py-3 px-4 rounded-xl bg-[#28170e] hover:bg-[#341e12] border border-[#44281a] text-amber-300 font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                <span>{copied ? 'Copied Customer Link!' : 'Copy Customer Link'}</span>
-              </button>
+            {/* Share Section */}
+            <div className="pt-2 border-t border-[#2e180d] space-y-2.5">
+              <div className="text-xs uppercase font-extrabold tracking-wider text-amber-400/90 text-left px-1">
+                Share
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Open WhatsApp */}
+                <a
+                  href={`https://wa.me/${createdResult.ticket.mobNo}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Open WhatsApp</span>
+                </a>
+
+                {/* Copy Customer URL */}
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="py-3 px-4 rounded-xl bg-[#28170e] hover:bg-[#341e12] border border-[#44281a] text-amber-300 font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <span className="text-emerald-400 font-black">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span>Copy Customer URL</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
               <button
                 type="button"
@@ -432,7 +452,7 @@ export default function NewTicketPage() {
               <button
                 type="button"
                 onClick={handleCreateAnother}
-                className="w-full py-3 px-4 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-[#140b07] hover:brightness-110 shadow-md transition-all cursor-pointer mt-4"
+                className="w-full py-3.5 px-4 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-[#140b07] hover:brightness-110 shadow-md transition-all cursor-pointer mt-3"
               >
                 Create Another Ticket
               </button>

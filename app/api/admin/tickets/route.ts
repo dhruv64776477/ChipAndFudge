@@ -116,7 +116,6 @@ export async function POST(req: NextRequest) {
         customerUrl: result.customerUrl,
         qrDataUrl: result.qrDataUrl,
         rawToken: result.rawToken,
-        whatsapp: result.whatsapp,
       },
       { status: 201 }
     );

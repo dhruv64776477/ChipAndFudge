@@ -4,6 +4,13 @@ import { use, useEffect, useState, useCallback } from 'react';
 import { Utensils, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
+interface OrderItem {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
 interface TicketData {
   ticketId: string;
   name: string;
@@ -12,6 +19,8 @@ interface TicketData {
   createdAt: string;
   closedAt: string | null;
   qrDataUrl: string;
+  orderItems?: OrderItem[];
+  grandTotal?: number;
 }
 
 export default function CustomerTicketPage({
@@ -72,7 +81,6 @@ export default function CustomerTicketPage({
     fetchTicket();
   }, []);
 
-
   return (
     <div className="min-h-screen bg-[#0e0805] text-[#fcf8f3] flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-amber-500 selection:text-black">
       {loading && (
@@ -97,7 +105,7 @@ export default function CustomerTicketPage({
       )}
 
       {ticket && !loading && (
-        <div className="max-w-sm w-full rounded-3xl border border-[#442617] bg-gradient-to-b from-[#22140d] via-[#1a0f09] to-[#120b07] shadow-2xl p-6 sm:p-8 text-center space-y-6">
+        <div className="max-w-sm w-full rounded-3xl border border-[#442617] bg-gradient-to-b from-[#22140d] via-[#1a0f09] to-[#120b07] shadow-2xl p-6 sm:p-8 text-center space-y-5">
           {/* Header */}
           <div className="space-y-1">
             <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 mb-2">
@@ -106,79 +114,83 @@ export default function CustomerTicketPage({
             <h1 className="text-xl font-black tracking-tight text-white uppercase">
               The Chip &amp; Fudge
             </h1>
-            <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber-500">
-              Brownie Bowls
-            </p>
-            <p className="text-xs font-bold text-zinc-400 pt-1 uppercase tracking-wider">
-              Your Ticket
+            <p className="text-xs font-bold text-zinc-400 pt-0.5 uppercase tracking-wider">
+              Ticket: <span className="text-amber-400 font-mono font-black">{ticket.ticketId}</span>
             </p>
           </div>
 
           {/* Customer Details */}
-          <div className="space-y-3 py-2 border-y border-[#321c12]">
-            <div>
-              <span className="text-[11px] uppercase font-bold text-zinc-500 tracking-wider block">
-                Name
-              </span>
-              <span className="text-lg font-black text-white">{ticket.name}</span>
-            </div>
+          <div className="py-2 border-y border-[#321c12] space-y-1 text-center">
+            <span className="text-[11px] uppercase font-bold text-zinc-500 tracking-wider block">
+              Customer
+            </span>
+            <span className="text-lg font-black text-white block">{ticket.name}</span>
+          </div>
 
-            <div>
-              <span className="text-[11px] uppercase font-bold text-zinc-500 tracking-wider block">
-                Mobile
-              </span>
-              <span className="text-sm font-mono font-bold text-zinc-300">{ticket.mobNo}</span>
-            </div>
+          {/* Order Items Breakdown */}
+          {ticket.orderItems && ticket.orderItems.length > 0 && (
+            <div className="rounded-2xl bg-[#180e08] border border-[#321c12] p-4 text-left space-y-3">
+              <div className="text-[11px] uppercase font-bold text-amber-400 tracking-wider">
+                Order Items
+              </div>
+              <div className="space-y-2">
+                {ticket.orderItems.map((item, idx) => (
+                  <div key={idx} className="space-y-0.5 border-b border-[#2a170d] pb-2 last:border-0 last:pb-0">
+                    <div className="text-sm font-bold text-white">{item.name}</div>
+                    <div className="text-xs text-zinc-400 flex items-center justify-between font-mono">
+                      <span>
+                        ₹{item.unitPrice} × {item.quantity}
+                      </span>
+                      <span className="font-bold text-amber-300">₹{item.total}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-            <div>
-              <span className="text-[11px] uppercase font-bold text-zinc-500 tracking-wider block">
-                Ticket ID
-              </span>
-              <span className="text-xl font-black tracking-wider text-amber-400 font-mono">
-                {ticket.ticketId}
-              </span>
+              {ticket.grandTotal !== undefined && (
+                <div className="pt-2 border-t border-[#392013] flex items-center justify-between">
+                  <span className="text-xs font-black uppercase text-zinc-300 tracking-wider">
+                    Grand Total
+                  </span>
+                  <span className="text-lg font-black text-amber-400">
+                    ₹{ticket.grandTotal}
+                  </span>
+                </div>
+              )}
             </div>
+          )}
+
+          {/* Status Badge */}
+          <div>
+            {ticket.status === 'OPEN' ? (
+              <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Status: OPEN</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-zinc-800 text-zinc-300 border border-zinc-700">
+                <XCircle className="w-4 h-4" />
+                <span>Status: CLOSED</span>
+              </div>
+            )}
           </div>
 
           {/* QR Code Section */}
-          {ticket.status === 'OPEN' ? (
-            <div className="space-y-4">
-              <div className="bg-white p-3 rounded-2xl inline-block shadow-xl">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={ticket.qrDataUrl}
-                  alt="Ticket QR Code"
-                  className="w-48 h-48 mx-auto rounded-lg"
-                />
-              </div>
-
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Status: OPEN</span>
-                </div>
-                <p className="text-xs text-zinc-400 font-medium mt-2">
-                  Please show this QR code at the stall.
-                </p>
-              </div>
+          <div className="space-y-2 pt-1">
+            <div className="bg-white p-3 rounded-2xl inline-block shadow-xl">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={ticket.qrDataUrl}
+                alt="Ticket QR Code"
+                className="w-48 h-48 mx-auto rounded-lg"
+              />
             </div>
-          ) : (
-            /* CLOSED State */
-            <div className="space-y-4 py-4">
-              <div className="w-16 h-16 mx-auto rounded-full bg-zinc-800/60 border border-zinc-700 flex items-center justify-center text-zinc-400">
-                <XCircle className="w-9 h-9" />
-              </div>
-
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-zinc-800 text-zinc-300 border border-zinc-700">
-                  <span>Status: CLOSED</span>
-                </div>
-                <p className="text-xs text-zinc-400 font-medium mt-3">
-                  Ticket already used. Thank you for visiting The Chip &amp; Fudge!
-                </p>
-              </div>
-            </div>
-          )}
+            <p className="text-[11px] text-zinc-400 font-medium">
+              {ticket.status === 'OPEN'
+                ? 'Show this QR code at the stall to redeem your order.'
+                : 'Ticket redeemed. Thank you for visiting The Chip & Fudge!'}
+            </p>
+          </div>
         </div>
       )}
     </div>
