@@ -25,8 +25,8 @@ export async function GET(
       return NextResponse.json({ error: 'Ticket Not Found' }, { status: 404 });
     }
 
-    // The QR code contains the ticket ID for admin scanning
-    const qrDataUrl = await generateQrDataUrl(ticket.ticketId);
+    // The QR code contains the ticket ID for admin scanning (only generated for OPEN tickets)
+    const qrDataUrl = ticket.status === 'OPEN' ? await generateQrDataUrl(ticket.ticketId) : '';
 
     // Return ONLY safe public customer fields
     return NextResponse.json({

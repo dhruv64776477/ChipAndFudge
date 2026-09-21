@@ -52,34 +52,45 @@ export default function CustomerTicketPage({
         throw new Error('404 Ticket Not Found');
       }
 
-      if (data.status === 'CLOSED' && !celebrated) {
-        setCelebrated(true);
-        try {
-          confetti({
-            particleCount: 60,
-            spread: 55,
-            origin: { y: 0.6 },
-            colors: ['#f59e0b', '#d97706', '#10b981'],
-          });
-        } catch {
-          // ignore
-        }
+      if (data.status === 'CLOSED') {
+        setCelebrated((prev) => {
+          if (!prev) {
+            try {
+              confetti({
+                particleCount: 60,
+                spread: 55,
+                origin: { y: 0.6 },
+                colors: ['#f59e0b', '#d97706', '#10b981'],
+              });
+            } catch {
+              // ignore
+            }
+            return true;
+          }
+          return prev;
+        });
       }
 
       setTicket(data);
       setError(null);
     } catch {
-      if (!ticket) {
-        setError('Ticket Not Found');
-      }
+      setTicket((prev) => {
+        if (!prev) {
+          setError('Ticket Not Found');
+        }
+        return prev;
+      });
     } finally {
       setLoading(false);
     }
-  }, [token, celebrated, ticket]);
+  }, [token]);
 
   useEffect(() => {
     fetchTicket();
-  }, []);
+    // Refresh data periodically from server/DB to handle real-time ticket status changes
+    const interval = setInterval(fetchTicket, 3000);
+    return () => clearInterval(interval);
+  }, [fetchTicket]);
 
   return (
     <div className="min-h-screen bg-[#0e0805] text-[#fcf8f3] flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-amber-500 selection:text-black">
@@ -108,12 +119,11 @@ export default function CustomerTicketPage({
         <div className="max-w-sm w-full rounded-3xl border border-[#442617] bg-gradient-to-b from-[#22140d] via-[#1a0f09] to-[#120b07] shadow-2xl p-6 sm:p-8 text-center space-y-5">
           {/* Header */}
           <div className="space-y-1">
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 mb-2">
-              <Utensils className="w-5 h-5" />
+            <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl  mb-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/cf logo.png" alt="Logo" />
             </div>
-            <h1 className="text-xl font-black tracking-tight text-white uppercase">
-              The Chip &amp; Fudge
-            </h1>
+
             <p className="text-xs font-bold text-zinc-400 pt-0.5 uppercase tracking-wider">
               Ticket: <span className="text-amber-400 font-mono font-black">{ticket.ticketId}</span>
             </p>
@@ -169,28 +179,36 @@ export default function CustomerTicketPage({
               </div>
             ) : (
               <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-zinc-800 text-zinc-300 border border-zinc-700">
-                <XCircle className="w-4 h-4" />
-                <span>Status: CLOSED</span>
+                <XCircle className="w-4 h-4 text-rose-400" />
+                <span>Ticket Closed</span>
               </div>
             )}
           </div>
 
-          {/* QR Code Section */}
-          <div className="space-y-2 pt-1">
-            <div className="bg-white p-3 rounded-2xl inline-block shadow-xl">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={ticket.qrDataUrl}
-                alt="Ticket QR Code"
-                className="w-48 h-48 mx-auto rounded-lg"
-              />
+          {/* QR Code Section - Conditionally rendered ONLY when ticket status is OPEN */}
+          {ticket.status === 'OPEN' ? (
+            <div className="space-y-2 pt-1">
+              {ticket.qrDataUrl && (
+                <div className="bg-white p-3 rounded-2xl inline-block shadow-xl">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={ticket.qrDataUrl}
+                    alt="Ticket QR Code"
+                    className="w-48 h-48 mx-auto rounded-lg"
+                  />
+                </div>
+              )}
+              <p className="text-[11px] text-zinc-400 font-medium">
+                Show this QR code at the stall to redeem your order.
+              </p>
             </div>
-            <p className="text-[11px] text-zinc-400 font-medium">
-              {ticket.status === 'OPEN'
-                ? 'Show this QR code at the stall to redeem your order.'
-                : 'Ticket redeemed. Thank you for visiting The Chip & Fudge!'}
-            </p>
-          </div>
+          ) : (
+            <div className="pt-1">
+              <p className="text-xs text-zinc-400 font-medium">
+                Ticket redeemed. Thank you for visiting The Chip &amp; Fudge!
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

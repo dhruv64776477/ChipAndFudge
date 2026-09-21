@@ -55,12 +55,10 @@ export default function AdminPage() {
     <div className="min-h-screen bg-[#0d0704] text-[#fdfbf7] flex flex-col justify-between p-6 sm:p-10 selection:bg-amber-500 selection:text-black">
       {/* Header */}
       <header className="max-w-md w-full mx-auto text-center pt-6 sm:pt-12">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-900/30 border border-amber-500/30 mb-4 shadow-lg shadow-amber-950/40">
-          <Utensils className="w-7 h-7 text-amber-400" />
+        <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl  mb-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/cf logo.png" alt="Logo" />
         </div>
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white uppercase">
-          The Chip &amp; Fudge
-        </h1>
         <p className="text-xs uppercase font-extrabold tracking-widest text-amber-500/90 mt-1">
           Admin Portal
         </p>
@@ -100,21 +98,6 @@ export default function AdminPage() {
           </span>
         </Link>
 
-        {/* Task 3: WhatsApp Setup */}
-        <Link
-          href="/admin/whatsapp"
-          className="group block w-full p-6 rounded-3xl bg-gradient-to-b from-[#25150d] to-[#170c07] border border-[#442617] hover:border-amber-500/60 shadow-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.99] text-center"
-        >
-          <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-black transition-colors">
-            <MessageSquareText className="w-6 h-6" />
-          </div>
-          <span className="block text-lg font-black uppercase tracking-wider text-white group-hover:text-amber-300 transition-colors">
-            WhatsApp Setup
-          </span>
-          <span className="block text-xs text-zinc-400 mt-1 font-medium">
-            Connect and monitor WhatsApp delivery
-          </span>
-        </Link>
       </main>
 
       {/* Footer / Logout */}
