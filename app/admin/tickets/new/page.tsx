@@ -16,10 +16,13 @@ import {
   IndianRupee,
   MessageCircle,
   AlertCircle,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { playTicketCreatedChime } from '@/lib/audio';
 import { MENU_ITEMS } from '@/lib/menu/items';
 import type { OrderItem } from '@/types/ticket';
+import { downloadTicketPng } from '@/lib/utils/generateTicketPng';
 
 interface QuantityMap {
   [itemName: string]: number;
@@ -47,6 +50,30 @@ export default function NewTicketPage() {
   const [createdResult, setCreatedResult] = useState<CreatedTicketResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadTicket = async () => {
+    if (!createdResult) return;
+    setDownloading(true);
+    try {
+      await downloadTicketPng(
+        {
+          ticketId: createdResult.ticket.ticketId,
+          name: createdResult.ticket.name,
+          mobNo: createdResult.ticket.mobNo,
+          status: createdResult.ticket.status,
+          orderItems: createdResult.ticket.orderItems,
+          grandTotal: createdResult.ticket.grandTotal,
+        },
+        createdResult.customerUrl,
+        createdResult.qrDataUrl
+      );
+    } catch (err) {
+      console.error('Failed to download ticket PNG:', err);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   // Compute display total client-side (display only — server always recalculates)
   const clientTotal = MENU_ITEMS.reduce((sum, item) => {
@@ -403,12 +430,32 @@ export default function NewTicketPage() {
               </div>
             )}
 
-            {/* Share Section */}
+            {/* Actions Section */}
             <div className="pt-2 border-t border-[#2e180d] space-y-2.5">
               <div className="text-xs uppercase font-extrabold tracking-wider text-amber-400/90 text-left px-1">
-                Share
+                Actions
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Download Ticket */}
+                <button
+                  type="button"
+                  onClick={handleDownloadTicket}
+                  disabled={downloading}
+                  className="py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {downloading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <span>Generating PNG...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 text-white" />
+                      <span>Download Ticket</span>
+                    </>
+                  )}
+                </button>
+
                 {/* Open WhatsApp */}
                 <a
                   href={`https://wa.me/${createdResult.ticket.mobNo}`}
@@ -438,16 +485,17 @@ export default function NewTicketPage() {
                     </>
                   )}
                 </button>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => setShowQr(!showQr)}
-                className="w-full py-2.5 px-4 rounded-xl bg-[#1d100a] hover:bg-[#25150d] border border-[#321b10] text-zinc-400 hover:text-white text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <QrCode className="w-4 h-4" />
-                <span>{showQr ? 'Hide QR' : 'Show QR'}</span>
-              </button>
+                {/* Show/Hide QR */}
+                <button
+                  type="button"
+                  onClick={() => setShowQr(!showQr)}
+                  className="py-3 px-4 rounded-xl bg-[#1d100a] hover:bg-[#25150d] border border-[#321b10] text-zinc-400 hover:text-white text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <QrCode className="w-4 h-4" />
+                  <span>{showQr ? 'Hide QR' : 'Show QR'}</span>
+                </button>
+              </div>
 
               <button
                 type="button"

@@ -119,9 +119,9 @@ export default function CustomerTicketPage({
         <div className="max-w-sm w-full rounded-3xl border border-[#442617] bg-gradient-to-b from-[#22140d] via-[#1a0f09] to-[#120b07] shadow-2xl p-6 sm:p-8 text-center space-y-5">
           {/* Header */}
           <div className="space-y-1">
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl  mb-2">
+            <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl mb-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/cf logo.png" alt="Logo" />
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
             </div>
 
             <p className="text-xs font-bold text-zinc-400 pt-0.5 uppercase tracking-wider">

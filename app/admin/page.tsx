@@ -55,9 +55,9 @@ export default function AdminPage() {
     <div className="min-h-screen bg-[#0d0704] text-[#fdfbf7] flex flex-col justify-between p-6 sm:p-10 selection:bg-amber-500 selection:text-black">
       {/* Header */}
       <header className="max-w-md w-full mx-auto text-center pt-6 sm:pt-12">
-        <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl  mb-2">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl mb-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/cf logo.png" alt="Logo" />
+          <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
         </div>
         <p className="text-xs uppercase font-extrabold tracking-widest text-amber-500/90 mt-1">
           Admin Portal
