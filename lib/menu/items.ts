@@ -31,6 +31,10 @@ export const MENU_ITEMS: MenuItem[] = [
     name: 'Combo',
     sellingPrice: 169,
   },
+  {
+    name: 'Super Combo',
+    sellingPrice: 199,
+  },
 ];
 
 /** Lookup map: item name → MenuItem */
