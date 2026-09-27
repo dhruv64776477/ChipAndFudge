@@ -19,13 +19,13 @@ export const MENU_ITEMS: MenuItem[] = [
   },
   {
     name: 'BYOB – Loaded Chips',
-    originalPrice: 99,
-    sellingPrice: 69,
+    originalPrice: 129,
+    sellingPrice: 99,
   },
   {
     name: 'Fusion Jhal Muri',
     originalPrice: 49,
-    sellingPrice: 29,
+    sellingPrice: 39,
   },
   {
     name: 'Combo',
